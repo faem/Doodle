@@ -58,6 +58,7 @@ class MainActivity : ComponentActivity() {
 }
 
 data class PathData(val path: Path, val strokeWidth: Float, val color: Color)
+enum class DrawingTool { PEN, ERASER }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -67,6 +68,7 @@ fun DrawingScreen() {
     var currentColor by remember { mutableStateOf(Color.Black) }
     var showColorPicker by remember { mutableStateOf(false) }
     var showStrokePicker by remember { mutableStateOf(false) }
+    var selectedTool by remember { mutableStateOf(DrawingTool.PEN) }
 
     Scaffold(
         topBar = {
@@ -99,8 +101,27 @@ fun DrawingScreen() {
                             modifier = Modifier.size(32.dp),
                             shape = CircleShape,
                             colors = ButtonDefaults.buttonColors(containerColor = currentColor),
-                            border = BorderStroke(1.dp, Color.Gray)
+                            border = if (selectedTool == DrawingTool.PEN) BorderStroke(
+                                2.dp,
+                                Color.Blue
+                            ) else BorderStroke(1.dp, Color.Gray)
                         ) {}
+
+                        Spacer(modifier = Modifier.width(8.dp))
+
+                        // Button to select the eraser tool.
+                        Button(
+                            onClick = { selectedTool = DrawingTool.ERASER },
+                            modifier = Modifier.size(32.dp),
+                            shape = CircleShape,
+                            colors = ButtonDefaults.buttonColors(containerColor = Color.White),                            border = if (selectedTool == DrawingTool.ERASER) BorderStroke(
+                                2.dp,
+                                Color.Blue
+                            ) else BorderStroke(1.dp, Color.Gray)
+                        )
+                        {
+                            Text("Eraser");
+                        }
 
                         Spacer(modifier = Modifier.width(16.dp))
 
@@ -132,6 +153,7 @@ fun DrawingScreen() {
                             Button(
                                 onClick = {
                                     currentColor = color
+                                    selectedTool = DrawingTool.PEN
                                     showColorPicker = false
                                 },
                                 modifier = Modifier.size(40.dp),
@@ -201,7 +223,7 @@ fun DrawingScreen() {
                                 PathData(
                                     path = Path().apply { moveTo(it.x, it.y) },
                                     strokeWidth = currentStrokeWidth,
-                                    color = currentColor
+                                    color = if (selectedTool == DrawingTool.ERASER) Color.White else currentColor
                                 )
                             )
                         },
