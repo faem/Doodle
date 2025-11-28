@@ -44,6 +44,22 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.unit.dp
 import androidx.core.text.color
+import android.content.ContentValues
+import android.content.Intent
+import android.graphics.Bitmap
+import android.provider.MediaStore
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.asAndroidPath
+import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.toSize
+import kotlinx.coroutines.launch
+import androidx.core.graphics.createBitmap
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -69,8 +85,13 @@ fun DrawingScreen() {
     var showColorPicker by remember { mutableStateOf(false) }
     var showStrokePicker by remember { mutableStateOf(false) }
     var selectedTool by remember { mutableStateOf(DrawingTool.PEN) }
+    val scope = rememberCoroutineScope()
+    val snackbarHostState = remember { SnackbarHostState() }
+    val context = LocalContext.current
+    var canvasSize by remember { mutableStateOf<Size?>(null) }
 
     Scaffold(
+        snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
         topBar = {
             TopAppBar(
                 title = { Text("Doodle") },
@@ -114,7 +135,8 @@ fun DrawingScreen() {
                             onClick = { selectedTool = DrawingTool.ERASER },
                             modifier = Modifier.size(32.dp),
                             shape = CircleShape,
-                            colors = ButtonDefaults.buttonColors(containerColor = Color.White),                            border = if (selectedTool == DrawingTool.ERASER) BorderStroke(
+                            colors = ButtonDefaults.buttonColors(containerColor = Color.White),
+                            border = if (selectedTool == DrawingTool.ERASER) BorderStroke(
                                 2.dp,
                                 Color.Blue
                             ) else BorderStroke(1.dp, Color.Gray)
@@ -127,6 +149,71 @@ fun DrawingScreen() {
 
                         Button(onClick = { paths.clear() }) {
                             Text("Clear")
+                        }
+
+                        Spacer(modifier = Modifier.width(8.dp))
+
+                        Button(onClick = {
+                            scope.launch {
+                                canvasSize?.let { size ->
+                                    val bitmap = createBitmap(size.width.toInt(), size.height.toInt())
+                                    val canvas = android.graphics.Canvas(bitmap)
+                                    canvas.drawColor(android.graphics.Color.WHITE)
+
+                                    val paint = android.graphics.Paint().apply {
+                                        style = android.graphics.Paint.Style.STROKE
+                                        isAntiAlias = true
+                                    }
+
+                                    paths.forEach { pathData ->
+                                        paint.color = pathData.color.toArgb()
+                                        paint.strokeWidth = pathData.strokeWidth
+                                        canvas.drawPath(pathData.path.asAndroidPath(), paint)
+                                    }
+
+                                    val values = ContentValues().apply {
+                                        put(
+                                            MediaStore.Images.Media.DISPLAY_NAME,
+                                            "Doodle_${System.currentTimeMillis()}.png"
+                                        )
+                                        put(MediaStore.Images.Media.MIME_TYPE, "image/png")
+                                        put(
+                                            MediaStore.Images.Media.RELATIVE_PATH,
+                                            "Pictures/Doodles"
+                                        )
+                                    }
+
+                                    val uri = context.contentResolver.insert(
+                                        MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
+                                        values
+                                    )
+                                    uri?.let {
+                                        context.contentResolver.openOutputStream(it)
+                                            ?.use { outputStream ->
+                                                bitmap.compress(
+                                                    Bitmap.CompressFormat.PNG,
+                                                    100,
+                                                    outputStream
+                                                )
+                                            }
+
+                                        val result = snackbarHostState.showSnackbar(
+                                            message = "Drawing saved",
+                                            actionLabel = "View",
+                                            withDismissAction = true
+                                        )
+                                        if (result == SnackbarResult.ActionPerformed) {
+                                            val intent = Intent(Intent.ACTION_VIEW).apply {
+                                                setDataAndType(uri, "image/png")
+                                                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                            }
+                                            context.startActivity(intent)
+                                        }
+                                    }
+                                }
+                            }
+                        }) {
+                            Text("Save")
                         }
                     }
                 }
@@ -216,6 +303,7 @@ fun DrawingScreen() {
                 .fillMaxSize()
                 .padding(paddingValues)
                 .background(Color.White)
+                .onSizeChanged { canvasSize = it.toSize() }
                 .pointerInput(true) {
                     detectDragGestures(
                         onDragStart = {
