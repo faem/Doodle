@@ -23,13 +23,12 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
@@ -40,7 +39,6 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.unit.dp
 import androidx.core.text.color
@@ -48,6 +46,8 @@ import android.content.ContentValues
 import android.content.Intent
 import android.graphics.Bitmap
 import android.provider.MediaStore
+import androidx.compose.material3.Divider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
@@ -57,6 +57,7 @@ import androidx.compose.ui.graphics.asAndroidPath
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.toSize
 import kotlinx.coroutines.launch
 import androidx.core.graphics.createBitmap
@@ -105,141 +106,7 @@ fun DrawingScreen() {
     var canvasSize by remember { mutableStateOf<Size?>(null) }
 
     Scaffold(
-        snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
-        topBar = {
-            TopAppBar(
-                title = { Text("Doodle") },
-                actions = {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        // Button to open the stroke picker.
-                        Button(
-                            onClick = { showStrokePicker = true },
-                            modifier = Modifier.size(32.dp),
-                            shape = CircleShape,
-                            colors = ButtonDefaults.buttonColors(containerColor = Color.White),
-                            border = BorderStroke(1.dp, Color.Gray),
-                            contentPadding = PaddingValues(0.dp)
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .size((currentStrokeWidth / 2).dp)
-                                    .background(Color.Black, CircleShape)
-                            )
-                        }
-
-                        Spacer(modifier = Modifier.width(8.dp))
-
-                        // Button to open the color picker.
-                        Button(
-                            onClick = { showColorPicker = true },
-                            modifier = Modifier.size(32.dp),
-                            shape = CircleShape,
-                            colors = ButtonDefaults.buttonColors(containerColor = currentColor),
-                            border = if (selectedTool == DrawingTool.PEN) BorderStroke(
-                                2.dp,
-                                Color.Blue
-                            ) else BorderStroke(1.dp, Color.Gray)
-                        ) {}
-
-                        Spacer(modifier = Modifier.width(8.dp))
-
-                        // Button to select the eraser tool.
-                        Button(
-                            onClick = { selectedTool = DrawingTool.ERASER },
-                            modifier = Modifier.size(32.dp),
-                            shape = CircleShape,
-                            colors = ButtonDefaults.buttonColors(containerColor = Color.White),
-                            border = if (selectedTool == DrawingTool.ERASER) BorderStroke(
-                                2.dp,
-                                Color.Blue
-                            ) else BorderStroke(1.dp, Color.Gray)
-                        )
-                        {
-                            Text("Eraser");
-                        }
-
-                        Spacer(modifier = Modifier.width(16.dp))
-
-                        // Button to clear the canvas.
-                        Button(onClick = { paths.clear() }) {
-                            Text("Clear")
-                        }
-
-                        Spacer(modifier = Modifier.width(8.dp))
-
-                        // Button to save the drawing.
-                        Button(onClick = {
-                            scope.launch {
-                                canvasSize?.let { size ->
-                                    // Create a bitmap of the drawing.
-                                    val bitmap = createBitmap(size.width.toInt(), size.height.toInt())
-                                    val canvas = android.graphics.Canvas(bitmap)
-                                    canvas.drawColor(android.graphics.Color.WHITE)
-
-                                    val paint = android.graphics.Paint().apply {
-                                        style = android.graphics.Paint.Style.STROKE
-                                        isAntiAlias = true
-                                    }
-
-                                    paths.forEach { pathData ->
-                                        paint.color = pathData.color.toArgb()
-                                        paint.strokeWidth = pathData.strokeWidth
-                                        canvas.drawPath(pathData.path.asAndroidPath(), paint)
-                                    }
-
-                                    // Save the bitmap to the device's gallery.
-                                    val values = ContentValues().apply {
-                                        put(
-                                            MediaStore.Images.Media.DISPLAY_NAME,
-                                            "Doodle_${System.currentTimeMillis()}.png"
-                                        )
-                                        put(MediaStore.Images.Media.MIME_TYPE, "image/png")
-                                        put(
-                                            MediaStore.Images.Media.RELATIVE_PATH,
-                                            "Pictures/Doodles"
-                                        )
-                                    }
-
-                                    val uri = context.contentResolver.insert(
-                                        MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
-                                        values
-                                    )
-                                    uri?.let {
-                                        context.contentResolver.openOutputStream(it)
-                                            ?.use { outputStream ->
-                                                bitmap.compress(
-                                                    Bitmap.CompressFormat.PNG,
-                                                    100,
-                                                    outputStream
-                                                )
-                                            }
-
-                                        // Show a snackbar with a "View" action.
-                                        val result = snackbarHostState.showSnackbar(
-                                            message = "Drawing saved",
-                                            actionLabel = "View",
-                                            withDismissAction = true
-                                        )
-                                        if (result == SnackbarResult.ActionPerformed) {
-                                            val intent = Intent(Intent.ACTION_VIEW).apply {
-                                                setDataAndType(uri, "image/png")
-                                                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                                            }
-                                            context.startActivity(intent)
-                                        }
-                                    }
-                                }
-                            }
-                        }) {
-                            Text("Save")
-                        }
-                    }
-                }
-            )
-        }
+        snackbarHost = { SnackbarHost(hostState = snackbarHostState) }
     ) { paddingValues ->
         // Show the color picker dialog if showColorPicker is true.
         if (showColorPicker) {
@@ -321,45 +188,183 @@ fun DrawingScreen() {
             )
         }
 
-        // The canvas where the drawing takes place.
-        Canvas(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-                .background(Color.White)
-                .onSizeChanged { canvasSize = it.toSize() }
-                .pointerInput(true) {
-                    detectDragGestures(
-                        onDragStart = {
-                            // Start a new path when a drag gesture begins.
-                            paths.add(
-                                PathData(
-                                    path = Path().apply { moveTo(it.x, it.y) },
-                                    strokeWidth = currentStrokeWidth,
-                                    color = if (selectedTool == DrawingTool.ERASER) Color.White else currentColor
-                                )
-                            )
-                        },
-                        onDrag = { change, _ ->
-                            // Update the last path with the new drag position.
-                            change.consume()
-                            val lastPathData = paths.last()
-                            val newPath = Path().apply {
-                                addPath(lastPathData.path)
-                                lineTo(change.position.x, change.position.y)
-                            }
-                            paths[paths.size - 1] = lastPathData.copy(path = newPath)
-                        }
+        Column(modifier = Modifier
+            .fillMaxSize()
+            .padding(paddingValues)) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(8.dp),
+                horizontalArrangement = Arrangement.SpaceEvenly,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Button to open the stroke picker.
+                Button(
+                    onClick = { showStrokePicker = true },
+                    modifier = Modifier.size(32.dp),
+                    shape = CircleShape,
+                    colors = ButtonDefaults.buttonColors(containerColor = Color.White),
+                    border = BorderStroke(1.dp, Color.Gray),
+                    contentPadding = PaddingValues(0.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size((currentStrokeWidth / 2).dp)
+                            .background(Color.Black, CircleShape)
                     )
                 }
-        ) {
-            // Draw all the paths on the canvas.
-            paths.forEach { pathData ->
-                drawPath(
-                    path = pathData.path,
-                    color = pathData.color,
-                    style = Stroke(width = pathData.strokeWidth)
+
+                // Button to open the color picker.
+                Button(
+                    onClick = { 
+                        if (selectedTool == DrawingTool.ERASER) {
+                            selectedTool = DrawingTool.PEN
+                        } else {
+                            showColorPicker = true
+                        }
+                     },
+                    modifier = Modifier.size(32.dp),
+                    shape = CircleShape,
+                    colors = ButtonDefaults.buttonColors(containerColor = currentColor),
+                    border = if (selectedTool == DrawingTool.PEN) BorderStroke(
+                        2.dp,
+                        Color.Blue
+                    ) else BorderStroke(1.dp, Color.Gray)
+                ) {}
+
+                // Button to select the eraser tool.
+                Button(
+                    onClick = { selectedTool = DrawingTool.ERASER },
+                    modifier = Modifier.size(32.dp),
+                    shape = CircleShape,
+                    colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent),
+                    border = if (selectedTool == DrawingTool.ERASER) BorderStroke(
+                        2.dp,
+                        Color.Blue
+                    ) else BorderStroke(1.dp, Color.Gray),
+                    contentPadding = PaddingValues(0.dp)
                 )
+                {
+                    Icon(
+                        painter = painterResource(id = R.drawable.eraser),
+                        contentDescription = "Eraser",
+                        tint = Color.Unspecified
+                    )
+                }
+
+                // Button to clear the canvas.
+                Button(onClick = { paths.clear() }) {
+                    Text("Clear")
+                }
+
+                // Button to save the drawing.
+                Button(onClick = {
+                    scope.launch {
+                        canvasSize?.let { size ->
+                            // Create a bitmap of the drawing.
+                            val bitmap = createBitmap(size.width.toInt(), size.height.toInt())
+                            val canvas = android.graphics.Canvas(bitmap)
+                            canvas.drawColor(android.graphics.Color.WHITE)
+
+                            val paint = android.graphics.Paint().apply {
+                                style = android.graphics.Paint.Style.STROKE
+                                isAntiAlias = true
+                            }
+
+                            paths.forEach { pathData ->
+                                paint.color = pathData.color.toArgb()
+                                paint.strokeWidth = pathData.strokeWidth
+                                canvas.drawPath(pathData.path.asAndroidPath(), paint)
+                            }
+
+                            // Save the bitmap to the device's gallery.
+                            val values = ContentValues().apply {
+                                put(
+                                    MediaStore.Images.Media.DISPLAY_NAME,
+                                    "Doodle_${System.currentTimeMillis()}.png"
+                                )
+                                put(MediaStore.Images.Media.MIME_TYPE, "image/png")
+                                put(
+                                    MediaStore.Images.Media.RELATIVE_PATH,
+                                    "Pictures/Doodles"
+                                )
+                            }
+
+                            val uri = context.contentResolver.insert(
+                                MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
+                                values
+                            )
+                            uri?.let {
+                                context.contentResolver.openOutputStream(it)
+                                    ?.use { outputStream ->
+                                        bitmap.compress(
+                                            Bitmap.CompressFormat.PNG,
+                                            100,
+                                            outputStream
+                                        )
+                                    }
+
+                                // Show a snackbar with a "View" action.
+                                val result = snackbarHostState.showSnackbar(
+                                    message = "Drawing saved",
+                                    actionLabel = "View",
+                                    withDismissAction = true
+                                )
+                                if (result == SnackbarResult.ActionPerformed) {
+                                    val intent = Intent(Intent.ACTION_VIEW).apply {
+                                        setDataAndType(uri, "image/png")
+                                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                    }
+                                    context.startActivity(intent)
+                                }
+                            }
+                        }
+                    }
+                }) {
+                    Text("Save")
+                }
+            }
+            Divider()
+            // The canvas where the drawing takes place.
+            Canvas(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+                    .background(Color.White)
+                    .onSizeChanged { canvasSize = it.toSize() }
+                    .pointerInput(true) {
+                        detectDragGestures(
+                            onDragStart = {
+                                // Start a new path when a drag gesture begins.
+                                paths.add(
+                                    PathData(
+                                        path = Path().apply { moveTo(it.x, it.y) },
+                                        strokeWidth = currentStrokeWidth,
+                                        color = if (selectedTool == DrawingTool.ERASER) Color.White else currentColor
+                                    )
+                                )
+                            },
+                            onDrag = { change, _ ->
+                                // Update the last path with the new drag position.
+                                change.consume()
+                                val lastPathData = paths.last()
+                                val newPath = Path().apply {
+                                    addPath(lastPathData.path)
+                                    lineTo(change.position.x, change.position.y)
+                                }
+                                paths[paths.size - 1] = lastPathData.copy(path = newPath)
+                            }
+                        )
+                    }
+            ) {
+                // Draw all the paths on the canvas.
+                paths.forEach { pathData ->
+                    drawPath(
+                        path = pathData.path,
+                        color = pathData.color,
+                        style = Stroke(width = pathData.strokeWidth)
+                    )
+                }
             }
         }
     }
