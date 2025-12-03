@@ -61,6 +61,7 @@ import androidx.compose.ui.unit.toSize
 import kotlinx.coroutines.launch
 import androidx.core.graphics.createBitmap
 
+// The main activity of the application.
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -73,21 +74,34 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+// Data class to hold information about a single path drawn on the canvas.
 data class PathData(val path: Path, val strokeWidth: Float, val color: Color)
+// Enum to represent the available drawing tools.
 enum class DrawingTool { PEN, ERASER }
 
+// The main screen for the drawing application.
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DrawingScreen() {
+    // A list of paths drawn on the canvas.
     val paths = remember { mutableStateListOf<PathData>() }
+    // The current stroke width for the drawing tool.
     var currentStrokeWidth by remember { mutableStateOf(5f) }
+    // The current color for the drawing tool.
     var currentColor by remember { mutableStateOf(Color.Black) }
+    // Whether to show the color picker dialog.
     var showColorPicker by remember { mutableStateOf(false) }
+    // Whether to show the stroke picker dialog.
     var showStrokePicker by remember { mutableStateOf(false) }
+    // The currently selected drawing tool.
     var selectedTool by remember { mutableStateOf(DrawingTool.PEN) }
+    // Coroutine scope for launching suspend functions.
     val scope = rememberCoroutineScope()
+    // State for showing snackbars.
     val snackbarHostState = remember { SnackbarHostState() }
+    // The current context.
     val context = LocalContext.current
+    // The size of the canvas.
     var canvasSize by remember { mutableStateOf<Size?>(null) }
 
     Scaffold(
@@ -100,6 +114,7 @@ fun DrawingScreen() {
                         modifier = Modifier.padding(horizontal = 8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
+                        // Button to open the stroke picker.
                         Button(
                             onClick = { showStrokePicker = true },
                             modifier = Modifier.size(32.dp),
@@ -117,6 +132,7 @@ fun DrawingScreen() {
 
                         Spacer(modifier = Modifier.width(8.dp))
 
+                        // Button to open the color picker.
                         Button(
                             onClick = { showColorPicker = true },
                             modifier = Modifier.size(32.dp),
@@ -147,15 +163,18 @@ fun DrawingScreen() {
 
                         Spacer(modifier = Modifier.width(16.dp))
 
+                        // Button to clear the canvas.
                         Button(onClick = { paths.clear() }) {
                             Text("Clear")
                         }
 
                         Spacer(modifier = Modifier.width(8.dp))
 
+                        // Button to save the drawing.
                         Button(onClick = {
                             scope.launch {
                                 canvasSize?.let { size ->
+                                    // Create a bitmap of the drawing.
                                     val bitmap = createBitmap(size.width.toInt(), size.height.toInt())
                                     val canvas = android.graphics.Canvas(bitmap)
                                     canvas.drawColor(android.graphics.Color.WHITE)
@@ -171,6 +190,7 @@ fun DrawingScreen() {
                                         canvas.drawPath(pathData.path.asAndroidPath(), paint)
                                     }
 
+                                    // Save the bitmap to the device's gallery.
                                     val values = ContentValues().apply {
                                         put(
                                             MediaStore.Images.Media.DISPLAY_NAME,
@@ -197,6 +217,7 @@ fun DrawingScreen() {
                                                 )
                                             }
 
+                                        // Show a snackbar with a "View" action.
                                         val result = snackbarHostState.showSnackbar(
                                             message = "Drawing saved",
                                             actionLabel = "View",
@@ -220,6 +241,7 @@ fun DrawingScreen() {
             )
         }
     ) { paddingValues ->
+        // Show the color picker dialog if showColorPicker is true.
         if (showColorPicker) {
             val colors = listOf(
                 Color(0xFFFF0000), Color(0xFFFFA500), Color(0xFFFFFF00), Color(0xFF7FFF00),
@@ -258,6 +280,7 @@ fun DrawingScreen() {
             )
         }
 
+        // Show the stroke picker dialog if showStrokePicker is true.
         if (showStrokePicker) {
             val strokeWidths = listOf(5f, 10f, 15f, 20f, 25f, 30f)
             AlertDialog(
@@ -298,6 +321,7 @@ fun DrawingScreen() {
             )
         }
 
+        // The canvas where the drawing takes place.
         Canvas(
             modifier = Modifier
                 .fillMaxSize()
@@ -307,6 +331,7 @@ fun DrawingScreen() {
                 .pointerInput(true) {
                     detectDragGestures(
                         onDragStart = {
+                            // Start a new path when a drag gesture begins.
                             paths.add(
                                 PathData(
                                     path = Path().apply { moveTo(it.x, it.y) },
@@ -316,6 +341,7 @@ fun DrawingScreen() {
                             )
                         },
                         onDrag = { change, _ ->
+                            // Update the last path with the new drag position.
                             change.consume()
                             val lastPathData = paths.last()
                             val newPath = Path().apply {
@@ -327,6 +353,7 @@ fun DrawingScreen() {
                     )
                 }
         ) {
+            // Draw all the paths on the canvas.
             paths.forEach { pathData ->
                 drawPath(
                     path = pathData.path,
