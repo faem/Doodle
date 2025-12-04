@@ -52,6 +52,7 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.asAndroidPath
 import androidx.compose.ui.graphics.toArgb
@@ -237,7 +238,7 @@ fun DrawingScreen() {
                     onClick = { selectedTool = DrawingTool.ERASER },
                     modifier = Modifier.size(32.dp),
                     shape = CircleShape,
-                    colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color.White),
                     border = if (selectedTool == DrawingTool.ERASER) BorderStroke(
                         2.dp,
                         Color.Blue
@@ -331,6 +332,7 @@ fun DrawingScreen() {
                     .fillMaxWidth()
                     .weight(1f)
                     .background(Color.White)
+                    .clipToBounds()
                     .onSizeChanged { canvasSize = it.toSize() }
                     .pointerInput(true) {
                         detectDragGestures(
